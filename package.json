@@ -1,0 +1,26 @@
+{
+    "name": "jts",
+    "version": "0.0.1",
+    "type": "module",
+    "bin": {
+        "jts": "./build/index.js"
+    },
+    "scripts": {
+        "build": "tsup src/index.ts --format esm --clean --out-dir build",
+        "dev": "tsup src/index.ts --watch --format esm --out-dir build",
+        "start": "node build/index.js"
+    },
+    "dependencies": {
+        "chalk": "^6.0.0",
+        "commander": "^15.0.0",
+        "fast-glob": "^3.3.3",
+        "prettier": "^3.9.6",
+        "tree-sitter": "^0.21.1",
+        "tree-sitter-java": "^0.23.5"
+    },
+    "devDependencies": {
+        "@types/node": "^26.1.2",
+        "tsup": "^8.5.1",
+        "typescript": "^7.0.2"
+    }
+}
