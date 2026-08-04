@@ -12,6 +12,6 @@ public class Main {
 
         char c = '\''
         String text = "let const function";
-        if(age == 20) System.out.println(text);
+        if(age == 20) console.log(text);
     }
 }

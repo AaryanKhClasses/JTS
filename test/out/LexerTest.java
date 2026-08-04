@@ -2,8 +2,8 @@ package test;
 
 public class Main {
     public static void main(String[] args) {
-        let age = 20;
-        const name = "Test Name";
+        var age = 20;
+        final var name = "Test Name";
         // let should not change
         /*
             const

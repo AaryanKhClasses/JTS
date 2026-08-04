@@ -17,8 +17,9 @@ export async function compile(options: CompilerOptions): Promise<void> {
 
         const tokens = lex(source)
         const transformed = transform(tokens)
-        const tree = parse(transformed)
-        const java = generate(tree, transformed)
+        const result = parse(transformed)
+        // if(!result.success) throw new Error(`Generated Java code has syntax errors for file: ${input}`)
+        const java = generate(result.tree, transformed)
 
         await fs.mkdir(path.dirname(output), { recursive: true })
         await fs.writeFile(output, java, 'utf-8')

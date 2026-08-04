@@ -1,6 +1,13 @@
+import Parser from 'tree-sitter'
+
 export interface CompilerOptions {
     source: string
     output: string
+}
+
+export interface ParseResult {
+    tree: Parser.Tree
+    success: boolean
 }
 
 export enum TokenType {
