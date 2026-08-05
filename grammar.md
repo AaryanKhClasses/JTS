@@ -56,3 +56,46 @@ to
 ```java
 System.err.println("Error Message")
 ```
+
+## Function Declaration
+1. Function declaration with no parameters and no return type
+```ts
+function greet() {
+    console.log("Hello World")
+}
+```
+returns an error because JTS requires a return type annotation for functions.
+
+2. Function declaration with no parameters and a return type
+```ts
+function greet(): void {
+    console.log("Hello World")
+}
+```
+to
+```java
+void greet() {
+    System.out.println("Hello World");
+}
+```
+
+3. Function declaration with untyped parameters
+```ts
+function add(a, b): number {
+    return a + b
+}
+```
+returns an error because JTS requires type annotations for function parameters.
+
+4. Function declaration with typed parameters
+```ts
+function add(a: number, b: number): number {
+    return a + b
+}
+```
+to
+```java
+int add(int a, int b) {
+    return a + b;
+}
+```

@@ -12,8 +12,12 @@ public class Main {
             function
         */
 
-        char c = '\''
+        char c = '\'';
         String text = "let const function";
         if(age == 20) System.out.println(text);
+
+        int test(int a, int b) {
+            return a + b;
+        }
     }
 }

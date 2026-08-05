@@ -1,4 +1,10 @@
+import { Constants, TYPE_MAP } from './constants'
 import { Token, TokenType } from './types'
+
+type ParsedParameter = {
+    output: string
+    nextOffset: number
+}
 
 export class TokenReader {
     constructor(
@@ -48,5 +54,20 @@ export class TokenReader {
             if(!token || token.value !== values[i]) return false
         }
         return true
+    }
+
+    public parsedParameter(offset: number): ParsedParameter | null {
+        const identifier = this.next(offset)
+        if(!identifier || identifier.type !== TokenType.Identifier) return null
+        if(this.nextValue(offset + 1) !== ':') throw new Error(Constants.ErrorMissingTypeAnnotation(identifier.value))
+
+        const typeToken = this.next(offset + 2)
+        if(!typeToken) return null
+        const javaType = TYPE_MAP.get(typeToken.value)
+        if(!javaType) throw new Error(Constants.ErrorUnknownType(typeToken.value))
+        return {
+            output: `${javaType} ${identifier.value}`,
+            nextOffset: offset + 2
+        }
     }
 }

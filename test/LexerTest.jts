@@ -12,8 +12,12 @@ public class Main {
             function
         */
 
-        char c = '\''
+        char c = '\'';
         String text = "let const function";
         if(age == 20) console.log(text);
+
+        function test(a: number, b: number): number {
+            return a + b;
+        }
     }
 }

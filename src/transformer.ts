@@ -1,3 +1,4 @@
+import { Constants, TYPE_MAP } from './constants'
 import { TokenReader } from './reader'
 import { Token, TokenType } from './types'
 
@@ -6,13 +7,6 @@ type TransformRuleResult = {
     consumed: number
 }
 type TransformRule = (reader: TokenReader) => TransformRuleResult | null
-
-const TYPE_MAP = new Map<string, string>([
-    ['number', 'int'],
-    ['string', 'String'],
-    ['boolean', 'boolean'],
-    ['any', 'Object']
-])
 
 const variableDeclarationRule: TransformRule = (reader) => {
     const keyword = reader.current()
@@ -58,9 +52,39 @@ const consoleLogRule: TransformRule = (reader) => {
     return null
 }
 
+const functionRule: TransformRule = (reader) => {
+    const keyword = reader.current()
+    if(!keyword || keyword.type !== TokenType.Keyword || keyword.value !== 'function') return null
+    const name = reader.next(1)
+    if(!name || name.type !== TokenType.Identifier) return null
+    if(reader.nextValue(2) !== '(') return null
+
+    const parameters: string[] = []
+    let offset = 3
+    while(reader.nextValue(offset) !== ')') {
+        const parameter = reader.parsedParameter(offset)
+        if(!parameter) return null
+        parameters.push(parameter.output)
+        offset = parameter.nextOffset + 1
+        if(reader.nextValue(offset) === ',') offset++
+    }
+    offset++
+    
+    if(reader.nextValue(offset) !== ':') throw new Error(Constants.ErrorMissingFunctionReturnTypeAnnotation(name.value))
+    const returnTypeToken = reader.next(offset + 1)
+    if(!returnTypeToken) return null
+    const returnType = TYPE_MAP.get(returnTypeToken.value)
+    if(!returnType) throw new Error(Constants.ErrorUnknownType(returnTypeToken.value))
+    return {
+        output: emit(returnType, ' ', name.value, '(', parameters.join(', '), ')'),
+        consumed: reader.nextIndex(offset + 1) - reader.currentIndex() + 1
+    }
+}
+
 const RULES: TransformRule[] = [
     variableDeclarationRule,
-    consoleLogRule
+    consoleLogRule,
+    functionRule
 ]
 
 export function transform(tokens: Token[]): string {
