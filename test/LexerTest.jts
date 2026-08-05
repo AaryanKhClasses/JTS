@@ -4,6 +4,8 @@ public class Main {
     public static void main(String[] args) {
         let age = 20;
         const name = "Test Name";
+        let a2: number = 10;
+        const a3: string = "Hello";
         // let should not change
         /*
             const
