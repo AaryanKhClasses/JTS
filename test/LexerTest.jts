@@ -1,23 +1,24 @@
 package test;
 
 public class Main {
-    public static void main(String[] args) {
-        let age = 20;
-        const name = "Test Name";
-        let a2: number = 10;
-        const a3: string = "Hello";
-        // let should not change
-        /*
-            const
-            function
-        */
+    public static void main(String[] args) { }
 
-        char c = '\'';
-        String text = "let const function";
-        if(age == 20) console.log(text);
+    function varTest(): void {
+        let num1 = 20;
+        const str1: string = "Hello";
 
-        function test(a: number, b: number): number {
-            return a + b;
-        }
+        let arr1: string[] = ["a", "b", "c"];
+        let arr2: number[] = [1, 2, 3];
+        let arr2d: number[][] = [[1, 2], [3, 4]];
+        let untypedArray = [1, 2, 3];
+        const testArr: any[] = [1, "two", 3.0, true];
+
+        const arr3: Array<string> = ["x", "y", "z"];
+        let arr4: Array<number> = [4, 5, 6];
+        let arr4d: Array<Array<number>> = [[7, 8], [9, 10]];
+    }
+
+    function funcTest(a: number, b: number): number {
+        return a + b;
     }
 }

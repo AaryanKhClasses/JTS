@@ -1,9 +1,9 @@
-import { Constants, TYPE_MAP } from './constants'
+import { COLLECTION_TYPES, Constants, PRIMITIVE_WRAPPERS, TYPE_MAP } from './constants'
 import { TokenReader } from './reader'
 import { Token, TokenType } from './types'
 
 type TransformRuleResult = {
-    output: string[]
+    output: string
     consumed: number
 }
 type TransformRule = (reader: TokenReader) => TransformRuleResult | null
@@ -19,20 +19,34 @@ const variableDeclarationRule: TransformRule = (reader) => {
     const identifier = reader.next(1)
     if(!identifier || identifier.type !== TokenType.Identifier) return null
 
-    if(reader.nextValue(2) !== ':') return {
-        output: isConst ? emit('final', ' ', 'var') : emit('var'),
-        consumed: 1
+    if(reader.nextValue(2) !== ':') {
+        if(reader.nextValue(2) === '=') {
+            const inferred = reader.inferArrayLiteralType(3)
+            if(inferred) {
+                const javaType = resolveType(inferred.type)
+                return {
+                    output: isConst
+                        ? emit('final ', javaType!, ' ', identifier.value)
+                        : emit(javaType!, ' ', identifier.value),
+                    consumed: reader.nextIndex(1) - reader.currentIndex() + 1
+                }
+            }
+        }
+        return {
+            output: isConst ? emit('final', ' ', 'var') : emit('var'),
+            consumed: 1
+        }
     }
 
-    const typeToken = reader.next(3)
-    if(!typeToken) return null
-    const javaType = TYPE_MAP.get(typeToken.value)
+    const parsedType = reader.parsedType(3)
+    if(!parsedType) return null
+    const javaType = resolveType(parsedType.type)
     if(!javaType) return null
     return {
         output: isConst
             ? emit('final ', javaType, ' ', identifier.value)
             : emit(javaType, ' ', identifier.value),
-        consumed: reader.nextIndex(3) - reader.currentIndex() + 1
+        consumed: reader.nextIndex(parsedType.nextOffset) - reader.currentIndex() + 1
     }
 }
 
@@ -69,22 +83,48 @@ const functionRule: TransformRule = (reader) => {
         if(reader.nextValue(offset) === ',') offset++
     }
     offset++
-    
+
     if(reader.nextValue(offset) !== ':') throw new Error(Constants.ErrorMissingFunctionReturnTypeAnnotation(name.value))
-    const returnTypeToken = reader.next(offset + 1)
-    if(!returnTypeToken) return null
-    const returnType = TYPE_MAP.get(returnTypeToken.value)
-    if(!returnType) throw new Error(Constants.ErrorUnknownType(returnTypeToken.value))
+    const parsedType = reader.parsedType(offset + 1)
+    if(!parsedType) return null
+    const returnType = resolveType(parsedType.type)
+    if(!returnType) throw new Error(Constants.ErrorUnknownType(parsedType.type))
     return {
         output: emit(returnType, ' ', name.value, '(', parameters.join(', '), ')'),
-        consumed: reader.nextIndex(offset + 1) - reader.currentIndex() + 1
+        consumed: reader.nextIndex(parsedType.nextOffset) - reader.currentIndex() + 1
+    }
+}
+
+const arrayLiteralRule: TransformRule = (reader) => {
+    if(reader.current()?.value !== '=' || reader.nextValue(1) !== '[') return null
+    const output: string[] = ['=', ' ', '{']
+
+    let offset = 2, depth = 1
+    while(depth > 0) {
+        const token = reader.next(offset)
+        if(!token) return null
+        if(token.value === '[') {
+            depth++
+            output.push('{')
+        }
+        else if(token.value === ']') {
+            depth--
+            output.push('}')
+        }
+        else output.push(token.value)
+        offset++
+    }
+    return {
+        output: emit(...output),
+        consumed: reader.nextIndex(offset - 1) - reader.currentIndex() + 1
     }
 }
 
 const RULES: TransformRule[] = [
     variableDeclarationRule,
     consoleLogRule,
-    functionRule
+    functionRule,
+    arrayLiteralRule
 ]
 
 export function transform(tokens: Token[]): string {
@@ -99,7 +139,7 @@ export function transform(tokens: Token[]): string {
         for(const rule of RULES) {
             const result = rule(reader)
             if(result === null) continue
-            output.push(...result.output)
+            output.push(result.output)
             i += result.consumed
             matched = true
             break
@@ -113,6 +153,22 @@ export function transform(tokens: Token[]): string {
 }
 
 
-function emit(...parts: string[]): string[] {
-    return [parts.join('')]
+function emit(...parts: string[]): string {
+    return parts.join('')
+}
+
+function resolveType(type: string): string | null {
+    if(type.endsWith('[]')) {
+        const element = resolveType(type.substring(0, type.length - 2))
+        if(!element) return null
+        return `${element}[]`
+    }
+    if(type.startsWith('Array<') && type.endsWith('>')) {
+        const inner = type.substring(6, type.length - 1)
+        const element = resolveType(inner)
+        if(!element) return null
+        const wrapper = PRIMITIVE_WRAPPERS.get(element) ?? element
+        return `${COLLECTION_TYPES.Array}<${wrapper}>`
+    }
+    return TYPE_MAP.get(type) || null
 }

@@ -6,6 +6,11 @@ type ParsedParameter = {
     nextOffset: number
 }
 
+type ParsedType = {
+    type: string
+    nextOffset: number
+}
+
 export class TokenReader {
     constructor(
         private readonly tokens: Token[],
@@ -61,13 +66,71 @@ export class TokenReader {
         if(!identifier || identifier.type !== TokenType.Identifier) return null
         if(this.nextValue(offset + 1) !== ':') throw new Error(Constants.ErrorMissingTypeAnnotation(identifier.value))
 
-        const typeToken = this.next(offset + 2)
-        if(!typeToken) return null
-        const javaType = TYPE_MAP.get(typeToken.value)
-        if(!javaType) throw new Error(Constants.ErrorUnknownType(typeToken.value))
+        const parsedType = this.parsedType(offset + 2)
+        if(!parsedType) return null
+        const javaType = TYPE_MAP.get(parsedType.type)
+        if(!javaType) throw new Error(Constants.ErrorUnknownType(parsedType.type))
         return {
             output: `${javaType} ${identifier.value}`,
-            nextOffset: offset + 2
+            nextOffset: parsedType.nextOffset
+        }
+    }
+
+    public parsedType(offset: number): ParsedType | null {
+        const first = this.next(offset)
+        if(!first) return null
+        let type = first.value
+        let current = offset
+
+        if(first.value === 'Array' && this.nextValue(current + 1) === '<') {
+            const inner = this.parsedType(current + 2)
+            if(!inner) return null
+            current = inner.nextOffset
+            if(this.nextValue(current + 1) !== '>') throw new Error(Constants.ErrorMissingClosingTag('>'))
+            current++
+            type = `Array<${inner.type}>`
+        }
+
+        while(this.nextValue(current + 1) === '[' && this.nextValue(current + 2) === ']') {
+            type += '[]'
+            current += 2
+        }
+        return {
+            type,
+            nextOffset: current
+        }
+    }
+
+    public parsedLiteralType(offset: number): ParsedType | null {
+        const token = this.next(offset)
+        if(!token) return null
+        switch(token.type) {
+            case TokenType.Number: return { type: 'number', nextOffset: offset }
+            case TokenType.String: return { type: 'string', nextOffset: offset }
+            case TokenType.Character: return { type: 'char', nextOffset: offset }
+        }
+
+        if(token.type === TokenType.Keyword && (token.value === 'true' || token.value === 'false')) return { type: 'boolean', nextOffset: offset }
+        return null
+    }
+
+    public inferArrayLiteralType(offset: number): ParsedType | null {
+        if(this.nextValue(offset) !== '[') return null
+        offset++
+        if(this.nextValue(offset) === ']') throw new Error(Constants.ErrorEmptyArrayLiteral)
+
+        let inferredType: string | null = null
+        while(this.nextValue(offset) !== ']') {
+            const literal = this.parsedLiteralType(offset)
+            if(!literal) return null
+            if(inferredType === null) inferredType = literal.type
+            else if(inferredType !== literal.type) throw new Error(Constants.ErrorMixedArrayLiteralTypes)
+            offset = literal.nextOffset + 1
+            if(this.nextValue(offset) === ',') offset++
+        }
+        return {
+            type: `${inferredType}[]`,
+            nextOffset: offset
         }
     }
 }

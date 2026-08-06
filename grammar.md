@@ -99,3 +99,43 @@ int add(int a, int b) {
     return a + b;
 }
 ```
+
+## Array Declaration
+1. Typed Array declaration using `[]` syntax
+```ts
+let arr: number[] = [1, 2, 3]
+let arr2d: number[][] = [[1, 2], [3, 4]]
+```
+to
+```java
+int[] arr = {1, 2, 3};
+int[][] arr2d = {{1, 2}, {3, 4}};
+```
+
+2. Typed Array declaration using `Array<type>` syntax
+```ts
+let arr: Array<number> = [1, 2, 3]
+const arr2d: Array<Array<number>> = [[1, 2], [3, 4]]
+```
+to
+```java
+ArrayList<Integer> arr = {1, 2, 3};
+final ArrayList<ArrayList<Integer>> arr2d = {{1, 2}, {3, 4}};
+```
+
+3. Untyped Non-Empty Non-Mixed Array declaration (infers type)
+```ts
+let arr = [1, 2, 3]
+let arr2d = [[1, 2], [3, 4]]
+```
+to
+```java
+int[] arr = {1, 2, 3};
+int[][] arr2d = {{1, 2}, {3, 4}};
+```
+
+4. Untyped Empty Array declaration.
+```ts
+let arr = []
+```
+gives an error because JTS cannot infer the type of an empty array.

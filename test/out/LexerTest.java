@@ -1,23 +1,24 @@
 package test;
 
 public class Main {
-    public static void main(String[] args) {
-        var age = 20;
-        final var name = "Test Name";
-        int a2 = 10;
-        final String a3 = "Hello";
-        // let should not change
-        /*
-            const
-            function
-        */
+    public static void main(String[] args) { }
 
-        char c = '\'';
-        String text = "let const function";
-        if(age == 20) System.out.println(text);
+    void varTest() {
+        var num1 = 20;
+        final String str1 = "Hello";
 
-        int test(int a, int b) {
-            return a + b;
-        }
+        String[] arr1 = {"a","b","c"};
+        int[] arr2 = {1,2,3};
+        int[][] arr2d = {{1,2},{3,4}};
+        int[] untypedArray = {1,2,3};
+        final Object[] testArr = {1,"two",3.0,true};
+
+        final ArrayList<String> arr3 = {"x","y","z"};
+        ArrayList<Integer> arr4 = {4,5,6};
+        ArrayList<ArrayList<Integer>> arr4d = {{7,8},{9,10}};
+    }
+
+    int funcTest(int a, int b) {
+        return a + b;
     }
 }
