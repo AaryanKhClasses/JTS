@@ -1,5 +1,12 @@
-import { Constants, TYPE_MAP } from './constants'
+import { COLLECTION_TYPES, Errors, PRIMITIVE_WRAPPERS, TYPE_MAP } from './constants'
 import { Token, TokenType } from './types'
+
+type ParsedVariableDeclaration = {
+    isConst: boolean
+    name: string
+    javaType: string
+    nextOffset: number
+}
 
 type ParsedParameter = {
     output: string
@@ -61,15 +68,31 @@ export class TokenReader {
         return true
     }
 
+    public resolveType(type: string): string | null {
+        if(type.endsWith('[]')) {
+            const element = this.resolveType(type.substring(0, type.length - 2))
+            if(!element) return null
+            return `${element}[]`
+        }
+        if(type.startsWith('Array<') && type.endsWith('>')) {
+            const inner = type.substring(6, type.length - 1)
+            const element = this.resolveType(inner)
+            if(!element) return null
+            const wrapper = PRIMITIVE_WRAPPERS.get(element) ?? element
+            return `${COLLECTION_TYPES.Array}<${wrapper}>`
+        }
+        return TYPE_MAP.get(type) || null
+    }
+
     public parsedParameter(offset: number): ParsedParameter | null {
         const identifier = this.next(offset)
         if(!identifier || identifier.type !== TokenType.Identifier) return null
-        if(this.nextValue(offset + 1) !== ':') throw new Error(Constants.ErrorMissingTypeAnnotation(identifier.value))
+        if(this.nextValue(offset + 1) !== ':') throw new Error(Errors.ErrorMissingTypeAnnotation(identifier.value))
 
         const parsedType = this.parsedType(offset + 2)
         if(!parsedType) return null
         const javaType = TYPE_MAP.get(parsedType.type)
-        if(!javaType) throw new Error(Constants.ErrorUnknownType(parsedType.type))
+        if(!javaType) throw new Error(Errors.ErrorUnknownType(parsedType.type))
         return {
             output: `${javaType} ${identifier.value}`,
             nextOffset: parsedType.nextOffset
@@ -86,7 +109,7 @@ export class TokenReader {
             const inner = this.parsedType(current + 2)
             if(!inner) return null
             current = inner.nextOffset
-            if(this.nextValue(current + 1) !== '>') throw new Error(Constants.ErrorMissingClosingTag('>'))
+            if(this.nextValue(current + 1) !== '>') throw new Error(Errors.ErrorMissingClosingTag('>'))
             current++
             type = `Array<${inner.type}>`
         }
@@ -117,20 +140,46 @@ export class TokenReader {
     public inferArrayLiteralType(offset: number): ParsedType | null {
         if(this.nextValue(offset) !== '[') return null
         offset++
-        if(this.nextValue(offset) === ']') throw new Error(Constants.ErrorEmptyArrayLiteral)
+        if(this.nextValue(offset) === ']') throw new Error(Errors.ErrorEmptyArrayLiteral)
 
         let inferredType: string | null = null
         while(this.nextValue(offset) !== ']') {
             const literal = this.parsedLiteralType(offset)
             if(!literal) return null
             if(inferredType === null) inferredType = literal.type
-            else if(inferredType !== literal.type) throw new Error(Constants.ErrorMixedArrayLiteralTypes)
+            else if(inferredType !== literal.type) throw new Error(Errors.ErrorMixedArrayLiteralTypes)
             offset = literal.nextOffset + 1
             if(this.nextValue(offset) === ',') offset++
         }
         return {
             type: `${inferredType}[]`,
             nextOffset: offset
+        }
+    }
+
+    public parsedVariableDeclaration(offset: number): ParsedVariableDeclaration | null {
+        const keyword = this.next(offset)
+        if(!keyword || keyword.type !== TokenType.Keyword || (keyword.value !== 'let' && keyword.value !== 'const')) return null
+
+        const isConst = keyword.value === 'const'
+        const identifier = this.next(offset + 1)
+        if(!identifier || identifier.type !== TokenType.Identifier) return null
+        if(this.nextValue(offset + 2) !== ':') return {
+            isConst,
+            name: identifier.value,
+            javaType: 'var',
+            nextOffset: offset + 1
+        }
+
+        const parsedType = this.parsedType(offset + 3)
+        if(!parsedType) return null
+        const javaType = this.resolveType(parsedType.type)
+        if(!javaType) throw new Error(Errors.ErrorUnknownType(parsedType.type))
+        return {
+            isConst,
+            name: identifier.value,
+            javaType,
+            nextOffset: parsedType.nextOffset
         }
     }
 }

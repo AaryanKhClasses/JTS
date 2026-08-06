@@ -139,3 +139,30 @@ int[][] arr2d = {{1, 2}, {3, 4}};
 let arr = []
 ```
 gives an error because JTS cannot infer the type of an empty array.
+
+## For Loop
+1. Standard For Loop
+```ts
+for(let i: number = 0; i < 10; i++) {
+    console.log(i)
+}
+```
+to
+```java
+for(int i = 0; i < 10; i++) {
+    System.out.println(i);
+}
+```
+
+2. For-Of Loop
+```ts
+for(const num of arr) {
+    console.log(num)
+}
+```
+to
+```java
+for(final var num : arr) {
+    System.out.println(num);
+}
+```

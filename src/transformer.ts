@@ -1,4 +1,4 @@
-import { COLLECTION_TYPES, Constants, PRIMITIVE_WRAPPERS, TYPE_MAP } from './constants'
+import { Errors } from './constants'
 import { TokenReader } from './reader'
 import { Token, TokenType } from './types'
 
@@ -9,44 +9,24 @@ type TransformRuleResult = {
 type TransformRule = (reader: TokenReader) => TransformRuleResult | null
 
 const variableDeclarationRule: TransformRule = (reader) => {
-    const keyword = reader.current()
-    if(
-        keyword?.type !== TokenType.Keyword ||
-        (keyword.value !== 'let' && keyword.value !== 'const')
-    ) return null
+    const declaration = reader.parsedVariableDeclaration(0)
+    if(!declaration) return null
 
-    const isConst = keyword.value === 'const'
-    const identifier = reader.next(1)
-    if(!identifier || identifier.type !== TokenType.Identifier) return null
-
-    if(reader.nextValue(2) !== ':') {
-        if(reader.nextValue(2) === '=') {
-            const inferred = reader.inferArrayLiteralType(3)
-            if(inferred) {
-                const javaType = resolveType(inferred.type)
-                return {
-                    output: isConst
-                        ? emit('final ', javaType!, ' ', identifier.value)
-                        : emit(javaType!, ' ', identifier.value),
-                    consumed: reader.nextIndex(1) - reader.currentIndex() + 1
-                }
+    if(declaration.javaType === 'var' && reader.nextValue(2) === '=') {
+        const inferred = reader.inferArrayLiteralType(3)
+        if(inferred) {
+            const javaType = reader.resolveType(inferred.type)
+            if(!javaType) throw new Error(Errors.ErrorUnknownType(inferred.type))
+            return {
+                output: emit(declaration.isConst ? 'final ' : '', javaType!, ' ', declaration.name),
+                consumed: reader.nextIndex(1) - reader.currentIndex() + 1
             }
-        }
-        return {
-            output: isConst ? emit('final', ' ', 'var') : emit('var'),
-            consumed: 1
         }
     }
 
-    const parsedType = reader.parsedType(3)
-    if(!parsedType) return null
-    const javaType = resolveType(parsedType.type)
-    if(!javaType) return null
     return {
-        output: isConst
-            ? emit('final ', javaType, ' ', identifier.value)
-            : emit(javaType, ' ', identifier.value),
-        consumed: reader.nextIndex(parsedType.nextOffset) - reader.currentIndex() + 1
+        output: emit(declaration.isConst ? 'final ' : '', declaration.javaType, ' ', declaration.name),
+        consumed: reader.nextIndex(declaration.nextOffset) - reader.currentIndex() + 1
     }
 }
 
@@ -55,11 +35,11 @@ const consoleLogRule: TransformRule = (reader) => {
     if(!token) return null
     if(token.type !== TokenType.Identifier || token.value !== 'console') return null
     if(reader.next(1)?.type !== TokenType.Punctuation || reader.next(1)?.value !== '.' ) return null
-    if(reader.next(2)?.type === TokenType.Identifier || reader.next(2)?.value === 'log') return {
+    if(reader.next(2)?.type === TokenType.Identifier && reader.next(2)?.value === 'log') return {
         output: emit('System', '.', 'out', '.', 'println'),
         consumed: 3
     }
-    else if(reader.next(2)?.type === TokenType.Identifier || reader.next(2)?.value === 'error') return {
+    else if(reader.next(2)?.type === TokenType.Identifier && reader.next(2)?.value === 'error') return {
         output: emit('System', '.', 'err', '.', 'println'),
         consumed: 3
     }
@@ -84,11 +64,11 @@ const functionRule: TransformRule = (reader) => {
     }
     offset++
 
-    if(reader.nextValue(offset) !== ':') throw new Error(Constants.ErrorMissingFunctionReturnTypeAnnotation(name.value))
+    if(reader.nextValue(offset) !== ':') throw new Error(Errors.ErrorMissingFunctionReturnTypeAnnotation(name.value))
     const parsedType = reader.parsedType(offset + 1)
     if(!parsedType) return null
-    const returnType = resolveType(parsedType.type)
-    if(!returnType) throw new Error(Constants.ErrorUnknownType(parsedType.type))
+    const returnType = reader.resolveType(parsedType.type)
+    if(!returnType) throw new Error(Errors.ErrorUnknownType(parsedType.type))
     return {
         output: emit(returnType, ' ', name.value, '(', parameters.join(', '), ')'),
         consumed: reader.nextIndex(parsedType.nextOffset) - reader.currentIndex() + 1
@@ -120,11 +100,30 @@ const arrayLiteralRule: TransformRule = (reader) => {
     }
 }
 
+const forOfRule: TransformRule = (reader) => {
+    if(reader.current()?.type !== TokenType.Keyword || reader.current()?.value !== 'for') return null
+    if(reader.nextValue(1) !== '(') return null
+
+    const declaration = reader.parsedVariableDeclaration(2)
+    if(!declaration) return null
+    if(reader.nextValue(declaration.nextOffset + 1) !== 'of') return null
+
+    const iterable = reader.next(declaration.nextOffset + 2)
+    if(!iterable || (iterable.type !== TokenType.Identifier)) return null
+    if(reader.nextValue(declaration.nextOffset + 3) !== ')') return null
+
+    return {
+        output: emit('for', '(', declaration.isConst ? 'final ' : '', declaration.javaType, ' ', declaration.name, ' : ', iterable.value, ')'),
+        consumed: reader.nextIndex(declaration.nextOffset + 3) - reader.currentIndex() + 1
+    }
+}
+
 const RULES: TransformRule[] = [
     variableDeclarationRule,
     consoleLogRule,
     functionRule,
-    arrayLiteralRule
+    arrayLiteralRule,
+    forOfRule
 ]
 
 export function transform(tokens: Token[]): string {
@@ -152,23 +151,6 @@ export function transform(tokens: Token[]): string {
     return output.join('')
 }
 
-
 function emit(...parts: string[]): string {
     return parts.join('')
-}
-
-function resolveType(type: string): string | null {
-    if(type.endsWith('[]')) {
-        const element = resolveType(type.substring(0, type.length - 2))
-        if(!element) return null
-        return `${element}[]`
-    }
-    if(type.startsWith('Array<') && type.endsWith('>')) {
-        const inner = type.substring(6, type.length - 1)
-        const element = resolveType(inner)
-        if(!element) return null
-        const wrapper = PRIMITIVE_WRAPPERS.get(element) ?? element
-        return `${COLLECTION_TYPES.Array}<${wrapper}>`
-    }
-    return TYPE_MAP.get(type) || null
 }

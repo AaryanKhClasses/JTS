@@ -1,9 +1,5 @@
+import { KEYWORDS } from './constants'
 import { Token, TokenType } from './types'
-
-const keywords = new Set([
-    'let', 'const', 'function',
-    'abstract', 'assert', 'boolean', 'break', 'byte', 'case', 'catch', 'char', 'class', 'continue', 'default', 'do', 'double', 'else', 'enum', 'extends', 'final', 'finally', 'float', 'for', 'if', 'implements', 'import', 'instanceof', 'int', 'interface', 'long', 'native', 'new', 'package', 'private', 'protected', 'public', 'return', 'short', 'static', 'super', 'switch', 'synchronized', 'this', 'throw', 'throws', 'transient', 'try', 'void', 'volatile', 'while', 'true', 'false', 'null'
-])
 
 export class Lexer {
     private readonly tokens: Token[] = []
@@ -87,7 +83,7 @@ export class Lexer {
         const start = this.index
         while(!this.eof() && this.isIdentifierPart(this.peek())) this.advance()
         const value = this.source.slice(start, this.index)
-        const type = keywords.has(value) ? TokenType.Keyword : TokenType.Identifier
+        const type = KEYWORDS.has(value) ? TokenType.Keyword : TokenType.Identifier
         this.addToken(type, value, start)
     }
 

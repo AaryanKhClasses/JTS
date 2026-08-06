@@ -18,7 +18,18 @@ public class Main {
         let arr4d: Array<Array<number>> = [[7, 8], [9, 10]];
     }
 
-    function funcTest(a: number, b: number): number {
-        return a + b;
+    function funcTest(a: number, b: number): number[] {
+        let result: number[] = [a + b, a - b, a * b, a / b];
+        return result;
+    }
+
+    function loopTest(): void {
+        for(const item of testArr) {
+            console.log(item);
+        }
+
+        for(let i: number = 0; i < arr2.length; i++) {
+            console.log(arr2[i]);
+        }
     }
 }

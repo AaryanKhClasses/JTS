@@ -1,4 +1,9 @@
-export const Constants = {
+export const KEYWORDS = new Set([
+    'let', 'const', 'function', 'of',
+    'abstract', 'assert', 'boolean', 'break', 'byte', 'case', 'catch', 'char', 'class', 'continue', 'default', 'do', 'double', 'else', 'enum', 'extends', 'final', 'finally', 'float', 'for', 'if', 'implements', 'import', 'instanceof', 'int', 'interface', 'long', 'native', 'new', 'package', 'private', 'protected', 'public', 'return', 'short', 'static', 'super', 'switch', 'synchronized', 'this', 'throw', 'throws', 'transient', 'try', 'void', 'volatile', 'while', 'true', 'false', 'null'
+])
+
+export const Errors = {
     ErrorMissingTypeAnnotation(value: string) {
         return `JTS1001: Missing type annotation for parameter '${value}'. Did you mean '${value}: any'?`
     },

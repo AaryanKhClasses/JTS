@@ -18,7 +18,18 @@ public class Main {
         ArrayList<ArrayList<Integer>> arr4d = {{7,8},{9,10}};
     }
 
-    int funcTest(int a, int b) {
-        return a + b;
+    int[] funcTest(int a, int b) {
+        int[] result = {a+b,a-b,a*b,a/b};
+        return result;
+    }
+
+    void loopTest() {
+        for(final var item : testArr) {
+            System.out.println(item);
+        }
+
+        for(int i = 0; i < arr2.length; i++) {
+            System.out.println(arr2[i]);
+        }
     }
 }
