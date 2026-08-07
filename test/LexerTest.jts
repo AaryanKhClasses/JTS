@@ -31,5 +31,9 @@ public class Main {
         for(let i: number = 0; i < arr2.length; i++) {
             console.log(arr2[i]);
         }
+
+        for(let key: number in arr2) {
+            console.log(key);
+        }
     }
 }

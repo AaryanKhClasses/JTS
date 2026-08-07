@@ -31,5 +31,9 @@ public class Main {
         for(int i = 0; i < arr2.length; i++) {
             System.out.println(arr2[i]);
         }
+
+        for(int key : arr2.keySet()) {
+            System.out.println(key);
+        }
     }
 }

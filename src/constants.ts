@@ -5,18 +5,41 @@ export const KEYWORDS = new Set([
 
 export const Errors = {
     ErrorMissingTypeAnnotation(value: string) {
-        return `JTS1001: Missing type annotation for parameter '${value}'. Did you mean '${value}: any'?`
+        return {
+            code: 'JTS1001',
+            message: `Missing type annotation for variable '${value}'.`,
+            suggestion: `Did you mean ': any'?`
+        }
     },
     ErrorMissingFunctionReturnTypeAnnotation(value: string) {
-        return `JTS1002: Missing return type annotation for function '${value}'. Did you mean ': void'?`
+        return {
+            code: 'JTS1002',
+            message: `Missing return type annotation for function '${value}'.`,
+            suggestion: `Did you mean ': void'?`
+        }
     },
     ErrorUnknownType(value: string) {
-        return `JTS1003: Unknown type '${value}'. Did you mean 'any'?`
+        return {
+            code: 'JTS1003',
+            message: `Unknown type '${value}'.`,
+            suggestion: `Did you mean 'any'?`
+        }
     },
-    ErrorEmptyArrayLiteral: 'JTS1004: Cannot infer type of empty array literal. Did you mean to specify a type annotation?',
-    ErrorMixedArrayLiteralTypes: 'JTS1005: Cannot infer type of array literal with mixed types. Did you mean to specify a type annotation?',
+    ErrorEmptyArrayLiteral: {
+        code: 'JTS1004',
+        message: 'Cannot infer type of empty array literal.',
+        suggestion: 'Did you mean to specify a type annotation?'
+    },
+    ErrorMixedArrayLiteralTypes: {
+        code: 'JTS1005',
+        message: 'Cannot infer type of array literal with mixed types.',
+        suggestion: 'Did you mean to specify a type annotation?'
+    },
     ErrorMissingClosingTag(tag: string) {
-        return `JTS1006: Missing closing tag '${tag}'.`
+        return {
+            code: 'JTS1006',
+            message: `Missing closing tag '${tag}'.`
+        }
     }
 } as const
 

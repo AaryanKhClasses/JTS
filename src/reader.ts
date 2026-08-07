@@ -1,4 +1,5 @@
 import { COLLECTION_TYPES, Errors, PRIMITIVE_WRAPPERS, TYPE_MAP } from './constants'
+import { DiagnosticReporter } from './diagnostics'
 import { Token, TokenType } from './types'
 
 type ParsedVariableDeclaration = {
@@ -21,7 +22,8 @@ type ParsedType = {
 export class TokenReader {
     constructor(
         private readonly tokens: Token[],
-        private readonly index: number
+        private readonly index: number,
+        private readonly reporter: DiagnosticReporter
     ) { }
 
     public current(): Token | undefined {
@@ -87,12 +89,20 @@ export class TokenReader {
     public parsedParameter(offset: number): ParsedParameter | null {
         const identifier = this.next(offset)
         if(!identifier || identifier.type !== TokenType.Identifier) return null
-        if(this.nextValue(offset + 1) !== ':') throw new Error(Errors.ErrorMissingTypeAnnotation(identifier.value))
+        if(this.nextValue(offset + 1) !== ':') {
+            const error = Errors.ErrorMissingTypeAnnotation(identifier.value)
+            this.reporter.error(error.code, error.message, this.currentIndex(), this.nextIndex(offset + 1), error.suggestion)
+            return null
+        }
 
         const parsedType = this.parsedType(offset + 2)
         if(!parsedType) return null
         const javaType = TYPE_MAP.get(parsedType.type)
-        if(!javaType) throw new Error(Errors.ErrorUnknownType(parsedType.type))
+        if(!javaType) {
+            const error = Errors.ErrorUnknownType(parsedType.type)
+            this.reporter.error(error.code, error.message, this.currentIndex(), this.nextIndex(parsedType.nextOffset), error.suggestion)
+            return null
+        }
         return {
             output: `${javaType} ${identifier.value}`,
             nextOffset: parsedType.nextOffset
@@ -109,7 +119,11 @@ export class TokenReader {
             const inner = this.parsedType(current + 2)
             if(!inner) return null
             current = inner.nextOffset
-            if(this.nextValue(current + 1) !== '>') throw new Error(Errors.ErrorMissingClosingTag('>'))
+            if(this.nextValue(current + 1) !== '>') {
+                const error = Errors.ErrorMissingClosingTag('>')
+                this.reporter.error(error.code, error.message, this.currentIndex(), this.nextIndex(current + 1))
+                return null
+            }
             current++
             type = `Array<${inner.type}>`
         }
@@ -140,14 +154,22 @@ export class TokenReader {
     public inferArrayLiteralType(offset: number): ParsedType | null {
         if(this.nextValue(offset) !== '[') return null
         offset++
-        if(this.nextValue(offset) === ']') throw new Error(Errors.ErrorEmptyArrayLiteral)
+        if(this.nextValue(offset) === ']') {
+            const error = Errors.ErrorEmptyArrayLiteral
+            this.reporter.error(error.code, error.message, this.currentIndex(), this.nextIndex(offset), error.suggestion)
+            return null
+        }
 
         let inferredType: string | null = null
         while(this.nextValue(offset) !== ']') {
             const literal = this.parsedLiteralType(offset)
             if(!literal) return null
             if(inferredType === null) inferredType = literal.type
-            else if(inferredType !== literal.type) throw new Error(Errors.ErrorMixedArrayLiteralTypes)
+            else if(inferredType !== literal.type) {
+                const error = Errors.ErrorMixedArrayLiteralTypes
+                this.reporter.error(error.code, error.message, this.currentIndex(), this.nextIndex(literal.nextOffset), error.suggestion)
+                return null
+            }
             offset = literal.nextOffset + 1
             if(this.nextValue(offset) === ',') offset++
         }
@@ -174,7 +196,11 @@ export class TokenReader {
         const parsedType = this.parsedType(offset + 3)
         if(!parsedType) return null
         const javaType = this.resolveType(parsedType.type)
-        if(!javaType) throw new Error(Errors.ErrorUnknownType(parsedType.type))
+        if(!javaType) {
+            const error = Errors.ErrorUnknownType(parsedType.type)
+            this.reporter.error(error.code, error.message, this.currentIndex(), this.nextIndex(parsedType.nextOffset), error.suggestion)
+            return null
+        }
         return {
             isConst,
             name: identifier.value,

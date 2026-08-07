@@ -1,4 +1,5 @@
 import { Errors } from './constants'
+import { DiagnosticReporter } from './diagnostics'
 import { TokenReader } from './reader'
 import { Token, TokenType } from './types'
 
@@ -6,9 +7,9 @@ type TransformRuleResult = {
     output: string
     consumed: number
 }
-type TransformRule = (reader: TokenReader) => TransformRuleResult | null
+type TransformRule = (reader: TokenReader, reporter: DiagnosticReporter) => TransformRuleResult | null
 
-const variableDeclarationRule: TransformRule = (reader) => {
+const variableDeclarationRule: TransformRule = (reader, reporter) => {
     const declaration = reader.parsedVariableDeclaration(0)
     if(!declaration) return null
 
@@ -16,7 +17,11 @@ const variableDeclarationRule: TransformRule = (reader) => {
         const inferred = reader.inferArrayLiteralType(3)
         if(inferred) {
             const javaType = reader.resolveType(inferred.type)
-            if(!javaType) throw new Error(Errors.ErrorUnknownType(inferred.type))
+            if(!javaType) {
+                const error = Errors.ErrorUnknownType(inferred.type)
+                reporter.error(error.code, error.message, reader.currentIndex(), reader.nextIndex(inferred.nextOffset), error.suggestion)
+                return null
+            }
             return {
                 output: emit(declaration.isConst ? 'final ' : '', javaType!, ' ', declaration.name),
                 consumed: reader.nextIndex(1) - reader.currentIndex() + 1
@@ -46,7 +51,7 @@ const consoleLogRule: TransformRule = (reader) => {
     return null
 }
 
-const functionRule: TransformRule = (reader) => {
+const functionRule: TransformRule = (reader, reporter) => {
     const keyword = reader.current()
     if(!keyword || keyword.type !== TokenType.Keyword || keyword.value !== 'function') return null
     const name = reader.next(1)
@@ -64,11 +69,19 @@ const functionRule: TransformRule = (reader) => {
     }
     offset++
 
-    if(reader.nextValue(offset) !== ':') throw new Error(Errors.ErrorMissingFunctionReturnTypeAnnotation(name.value))
+    if(reader.nextValue(offset) !== ':') {
+        const error = Errors.ErrorMissingFunctionReturnTypeAnnotation(name.value)
+        reporter.error(error.code, error.message, reader.currentIndex(), reader.nextIndex(offset), error.suggestion)
+        return null
+    }
     const parsedType = reader.parsedType(offset + 1)
     if(!parsedType) return null
     const returnType = reader.resolveType(parsedType.type)
-    if(!returnType) throw new Error(Errors.ErrorUnknownType(parsedType.type))
+    if(!returnType) {
+        const error = Errors.ErrorUnknownType(parsedType.type)
+        reporter.error(error.code, error.message, reader.currentIndex(), reader.nextIndex(parsedType.nextOffset), error.suggestion)
+        return null
+    }
     return {
         output: emit(returnType, ' ', name.value, '(', parameters.join(', '), ')'),
         consumed: reader.nextIndex(parsedType.nextOffset) - reader.currentIndex() + 1
@@ -118,25 +131,44 @@ const forOfRule: TransformRule = (reader) => {
     }
 }
 
+const forInRule: TransformRule = (reader) => {
+    if(reader.current()?.type !== TokenType.Keyword || reader.current()?.value !== 'for') return null
+    if(reader.nextValue(1) !== '(') return null
+
+    const declaration = reader.parsedVariableDeclaration(2)
+    if(!declaration) return null
+    if(reader.nextValue(declaration.nextOffset + 1) !== 'in') return null
+
+    const iterable = reader.next(declaration.nextOffset + 2)
+    if(!iterable || (iterable.type !== TokenType.Identifier)) return null
+    if(reader.nextValue(declaration.nextOffset + 3) !== ')') return null
+
+    return {
+        output: emit('for', '(', declaration.isConst ? 'final ' : '', declaration.javaType, ' ', declaration.name, ' : ', iterable.value, '.keySet()', ')'),
+        consumed: reader.nextIndex(declaration.nextOffset + 3) - reader.currentIndex() + 1
+    }
+}
+
 const RULES: TransformRule[] = [
     variableDeclarationRule,
     consoleLogRule,
     functionRule,
     arrayLiteralRule,
-    forOfRule
+    forOfRule,
+    forInRule
 ]
 
-export function transform(tokens: Token[]): string {
+export function transform(tokens: Token[], reporter: DiagnosticReporter): string {
     const output: string[] = []
     let i = 0
     while(i < tokens.length) {
         const token = tokens[i]
         if(token.type === TokenType.EOF) break
-        const reader = new TokenReader(tokens, i)
+        const reader = new TokenReader(tokens, i, reporter)
 
         let matched = false
         for(const rule of RULES) {
-            const result = rule(reader)
+            const result = rule(reader, reporter)
             if(result === null) continue
             output.push(result.output)
             i += result.consumed
